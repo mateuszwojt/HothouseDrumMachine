@@ -24,6 +24,7 @@ using clevelandmusicco::Hothouse;
 using daisy::AudioHandle;
 using daisy::Led;
 using daisy::SaiHandle;
+using daisysp::Decimator;
 using daisysp::SyntheticBassDrum;
 using daisysp::SyntheticSnareDrum;
 
@@ -33,9 +34,22 @@ Hothouse hw;
 SyntheticBassDrum kick;
 SyntheticSnareDrum snare;
 
+// Decimator effect settings for each switch position (bits)
+const float kBitDepth[] = {0.0f, 0.23f, 0.5f};
+const float kCrushRate[] = {0.25f, 0.5f, 0.75f};
+
+Decimator decimator;
+
 void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size)
 {
   hw.ProcessAllControls();
+
+  // Process decimator controls
+  int switch1Pos = hw.GetToggleswitchPosition(Hothouse::TOGGLESWITCH_1);
+  int switch2Pos = hw.GetToggleswitchPosition(Hothouse::TOGGLESWITCH_2);
+
+  decimator.SetDownsampleFactor(kBitDepth[switch1Pos]);
+  decimator.SetBitcrushFactor(kCrushRate[switch2Pos]);
 
   // Footswitch triggers
   if (hw.switches[Hothouse::FOOTSWITCH_1].RisingEdge())
@@ -83,6 +97,8 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
     float snareSample = snare.Process();
 
     float sig = kickSample + snareSample;
+    // Apply decimator effect
+    sig = decimator.Process(sig);
     out[0][i] = out[1][i] = sig * 0.5f;
   }
 }
@@ -95,6 +111,7 @@ int main()
 
   kick.Init(hw.AudioSampleRate());
   snare.Init(hw.AudioSampleRate());
+  decimator.Init();
 
   ledKick.Init(hw.seed.GetPin(Hothouse::LED_1), false);  // LED near left footswitch
   ledSnare.Init(hw.seed.GetPin(Hothouse::LED_2), false); // LED near right footswitch
