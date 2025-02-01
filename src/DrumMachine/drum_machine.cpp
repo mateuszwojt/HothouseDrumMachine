@@ -27,6 +27,7 @@ using daisy::SaiHandle;
 using daisysp::Decimator;
 using daisysp::SyntheticBassDrum;
 using daisysp::SyntheticSnareDrum;
+using daisysp::Wavefolder;
 
 Led ledKick, ledSnare;
 Hothouse hw;
@@ -34,19 +35,23 @@ Hothouse hw;
 SyntheticBassDrum kick;
 SyntheticSnareDrum snare;
 
-// Decimator effect settings for each switch position (bits)
+Decimator decimator;
+Wavefolder folder;
+
 const float kBitDepth[] = {0.0f, 0.23f, 0.5f};
 const float kCrushRate[] = {0.25f, 0.5f, 0.75f};
-
-Decimator decimator;
+const float kWavefoldAmount[] = {1.0f, 2.0f, 3.0f};
+const float kWavefoldOffset[] = {0.0f, 1.0f, 2.0f};
+const float kWavefoldCompensation[] = {1.0f, 0.7f, 0.5f}; // Gain compensation
 
 void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, size_t size)
 {
   hw.ProcessAllControls();
 
-  // Process decimator controls
+  // Process effect controls
   int switch1Pos = hw.GetToggleswitchPosition(Hothouse::TOGGLESWITCH_1);
   int switch2Pos = hw.GetToggleswitchPosition(Hothouse::TOGGLESWITCH_2);
+  int switch3Pos = hw.GetToggleswitchPosition(Hothouse::TOGGLESWITCH_3);
 
   decimator.SetDownsampleFactor(kBitDepth[switch1Pos]);
   decimator.SetBitcrushFactor(kCrushRate[switch2Pos]);
@@ -99,7 +104,15 @@ void AudioCallback(AudioHandle::InputBuffer in, AudioHandle::OutputBuffer out, s
     float sig = kickSample + snareSample;
     // Apply decimator effect
     sig = decimator.Process(sig);
-    out[0][i] = out[1][i] = sig * 0.5f;
+
+    // Apply wavefolder effect with gain compensation
+    folder.SetGain(kWavefoldAmount[switch3Pos]);
+    folder.SetOffset(kWavefoldOffset[switch3Pos]);
+    sig = folder.Process(sig);
+
+    // Apply gain compensation based on wavefold amount
+    float outputGain = 0.5f * kWavefoldCompensation[switch3Pos];
+    out[0][i] = out[1][i] = sig * outputGain;
   }
 }
 
@@ -112,6 +125,7 @@ int main()
   kick.Init(hw.AudioSampleRate());
   snare.Init(hw.AudioSampleRate());
   decimator.Init();
+  folder.Init();
 
   ledKick.Init(hw.seed.GetPin(Hothouse::LED_1), false);  // LED near left footswitch
   ledSnare.Init(hw.seed.GetPin(Hothouse::LED_2), false); // LED near right footswitch
