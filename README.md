@@ -23,7 +23,13 @@ make -C DaisySP
 
 Once that is done, you should be able to go into the effect source code (`src/DrumMachine`) and run `make`.
 
-To install the effect onto the Hothouse pedal, put your Hothouse into DFU mode and run:
+To install the effect onto the Hothouse pedal, put your Daisy Seed into DFU mode and run:
 ```
 make program-dfu
 ```
+
+If you're using a ST-Link V3 programmer/debugger probe, run:
+```
+make program
+```
+
