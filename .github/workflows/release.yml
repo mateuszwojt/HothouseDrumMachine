@@ -1,0 +1,55 @@
+name: Build and Release Firmware
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install ARM toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: "13.2.Rel1"
+
+      - name: Build libDaisy
+        run: make -C libDaisy
+
+      - name: Build DaisySP
+        run: make -C DaisySP
+
+      - name: Build DrumMachine
+        run: make -C src/DrumMachine
+
+      - name: Build DrumMachineSeq
+        run: make -C src/DrumMachineSeq
+
+      - name: Collect artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+          cp -v src/DrumMachine/build/drum_machine.bin dist/DrumMachine-${GITHUB_REF_NAME}.bin
+          cp -v src/DrumMachine/build/drum_machine.hex dist/DrumMachine-${GITHUB_REF_NAME}.hex
+          cp -v src/DrumMachine/build/drum_machine.elf dist/DrumMachine-${GITHUB_REF_NAME}.elf
+
+          cp -v src/DrumMachineSeq/build/drum_machine_seq.bin dist/DrumMachineSeq-${GITHUB_REF_NAME}.bin
+          cp -v src/DrumMachineSeq/build/drum_machine_seq.hex dist/DrumMachineSeq-${GITHUB_REF_NAME}.hex
+          cp -v src/DrumMachineSeq/build/drum_machine_seq.elf dist/DrumMachineSeq-${GITHUB_REF_NAME}.elf
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*
